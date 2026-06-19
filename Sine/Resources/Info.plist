@@ -25,8 +25,18 @@
     <string>1</string>
     <key>LSRequiresIPhoneOS</key>
     <true/>
+    <!-- App Store 分类 -->
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.music</string>
+    <!-- 出口合规: 仅使用 Apple 提供的标准/豁免加密 (本 App 无自有加密、不联网) -->
+    <key>ITSAppUsesNonExemptEncryption</key>
+    <false/>
     <key>UILaunchScreen</key>
     <dict/>
+    <key>UIRequiredDeviceCapabilities</key>
+    <array>
+        <string>arm64</string>
+    </array>
     <key>UISupportedInterfaceOrientations</key>
     <array>
         <string>UIInterfaceOrientationPortrait</string>
@@ -61,15 +71,10 @@
         </dict>
     </array>
 
-    <!-- 后台音频 + 长任务续跑 (IR-1 锁屏续跑分离 / 后台播放) -->
+    <!-- 后台音频: 调音台在后台继续播放 (真实使用, 符合审核要求) -->
     <key>UIBackgroundModes</key>
     <array>
         <string>audio</string>
-        <string>processing</string>
     </array>
-
-    <!-- 隐私: 全本地处理, 无跟踪 -->
-    <key>NSPrivacyTracking</key>
-    <false/>
 </dict>
 </plist>

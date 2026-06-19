@@ -1,0 +1,7 @@
+# 模型导出环境 (复现 SineSeparator.mlpackage)。
+# 关键: numpy 必须 < 2 (numpy 2.x 下 coremltools 转换 aten::Int 会因 int(ndarray) 报错)。
+numpy<2
+torch==2.4.1
+torchaudio==2.4.1
+coremltools==8.2
+demucs==4.0.1

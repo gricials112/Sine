@@ -56,10 +56,20 @@ python -m pytest -v        # 24 passed
 Swift 侧 `Tests/SineCoreTests` 与之一一对应，在 macOS `swift test` 回归。
 真机集成项 (CoreML/音频图/Metal/Haptics/内存) 清单见 docs/06。
 
-## 模型 (CoreML)
-- v1.0 捆绑轻量 `Spleeter-CoreML` (默认可用)，`HT-Demucs FP16` 作为高质量包按需下载。
-- 用 `coremltools` 转换为 `.mlmodelc` (FP16/INT8)，输入 `mix [1,2,frames]`，输出 `vocals/drums/bass/other`。
-- 权重不入库 (见 `.gitignore`)；`SeparationModelProvider` 协议已抽象，二选一不影响上层。
+## 模型 (CoreML) — 真实 HT-Demucs, 4 轨
+- `models/SineSeparator.mlpackage` = **Meta 官方 HT-Demucs 4.0.1** 导出, 4 轨 `drums/bass/other/vocals`。
+- 目标 **iOS 16** (FP16), 经 **Git LFS** 入库 (`weight.bin` ≈102MB)。**clone 后请 `git lfs pull`**。
+- CoreML 跑实值分离核心, STFT/ISTFT 由 Swift (`DemucsSTFT.swift`, Accelerate) 完成;
+  数值契约经 `reference/demucs_stft.py` 对真实 torch 模型校验 (误差 ~1e-8)。
+- 复现导出与版本约束见 [models/README.md](models/README.md)。
+
+## App Store 审核合规
+- **App 图标** 1024² (无 alpha): `Sine/Resources/Assets.xcassets/AppIcon.appiconset`
+- **隐私清单** (2024 起必需): `Sine/Resources/PrivacyInfo.xcprivacy` — 无跟踪/无数据收集, 仅声明
+  确用的需说明原因 API (磁盘空间预检 E174.1 / 文件时间戳 C617.1)
+- **出口合规**: `ITSAppUsesNonExemptEncryption=false` (无自有加密、不联网)
+- **权限用途说明**: 相册读/写 (`NSPhotoLibrary*UsageDescription`); 文档类型接收微信分享
+- **后台模式**: 仅 `audio` (调音台后台播放, 真实使用); App 分类 `public.app-category.music`
 
 ## 隐私
-全程本地处理，无任何网络上传；权限矩阵见 `Sine/Resources/Info.plist`。
+全程本地处理，无任何网络上传；权限矩阵见 `Sine/Resources/Info.plist` 与 `PrivacyInfo.xcprivacy`。

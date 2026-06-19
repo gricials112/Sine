@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Apple 隐私清单 (自 2024 起 App Store 提交必需)。
+     Sine 全程本地处理, 不联网、不跟踪、不收集任何数据。
+     仅声明确实使用的"需说明原因 API"。 -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- 不做用户跟踪 -->
+    <key>NSPrivacyTracking</key>
+    <false/>
+    <!-- 无跟踪域名 -->
+    <key>NSPrivacyTrackingDomains</key>
+    <array/>
+    <!-- 不收集任何数据类型 (音频全部留在本机) -->
+    <key>NSPrivacyCollectedDataTypes</key>
+    <array/>
+    <!-- 需说明原因的 API -->
+    <key>NSPrivacyAccessedAPITypes</key>
+    <array>
+        <!-- 磁盘空间: 导入/导出前预检可用空间, 避免写入失败 -->
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryDiskSpace</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <string>E174.1</string>
+            </array>
+        </dict>
+        <!-- 文件时间戳: 展示/排序本 App 自己创建的工程与导出文件 -->
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <string>C617.1</string>
+            </array>
+        </dict>
+    </array>
+</dict>
+</plist>

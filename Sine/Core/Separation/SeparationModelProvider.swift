@@ -29,10 +29,22 @@ public protocol SeparationModelProvider {
 }
 
 #if canImport(CoreML)
-/// CoreML 实现。加载 .mlmodelc, computeUnits = .all (优先 ANE), 失败回落 .cpuAndGPU。
+/// CoreML 实现 (真实 HT-Demucs 4 轨分离核心)。computeUnits = .all (优先 ANE), 失败回落 .cpuAndGPU。
+///
+/// 模型契约 (见 models/manifest.json, 由 export_htdemucs_ios16.py 导出):
+///   IN  mix [1,2,343980] · spectrogram [1,4,2048,336]
+///   OUT spectrogram_stems [1,4,4,2048,336] · waveform_stems [1,4,2,343980]
+///   源顺序 (dim1): drums(0), bass(1), other(2), vocals(3)
+/// STFT/ISTFT 由 DemucsSTFT (Accelerate) 完成, 数值契约经 reference/demucs_stft.py 校验 (~1e-8)。
 public final class CoreMLSeparationProvider: SeparationModelProvider {
     public let kind: SeparationModelKind
     private let model: MLModel
+    private let stft = DemucsSTFT()
+
+    private static let sourceOrder: [StemKind] = [.drums, .bass, .other, .vocal] // 模型 dim1 顺序
+    private static let seg = DemucsSTFT.segment   // 343980
+    private static let F = DemucsSTFT.freqBins    // 2048
+    private static let T = DemucsSTFT.frames      // 336
 
     public init(kind: SeparationModelKind, modelURL: URL, preferANE: Bool = true) throws {
         self.kind = kind
@@ -47,34 +59,60 @@ public final class CoreMLSeparationProvider: SeparationModelProvider {
         }
     }
 
+    /// 输入任意长度 (≤343980) 的立体声块; 补零到固定 segment -> STFT -> 推理 -> ISTFT 重建 -> 裁回原长。
     public func separateChunk(_ channels: [[Float]], sampleRate: Double) throws -> StemChunk {
         try autoreleasepool {
-            // 1) channels -> MLMultiArray [1, 2, frames]
-            let frames = channels.first?.count ?? 0
-            let input = try MLMultiArray(shape: [1, 2, NSNumber(value: frames)], dataType: .float32)
-            let ptr = input.dataPointer.bindMemory(to: Float.self, capacity: input.count)
-            for c in 0..<min(2, channels.count) {
-                let ch = channels[c]
-                for f in 0..<frames { ptr[c * frames + f] = ch[f] }
+            let length = channels.first?.count ?? 0
+            // 1) 补零到固定 segment
+            var mix: [[Float]] = []
+            for c in 0..<2 {
+                var ch = c < channels.count ? channels[c] : [Float](repeating: 0, count: length)
+                if ch.count < Self.seg { ch.append(contentsOf: [Float](repeating: 0, count: Self.seg - ch.count)) }
+                mix.append(Array(ch.prefix(Self.seg)))
             }
-            // 2) 推理 (模型 IO 名以实际转换为准, 此处为约定名)
-            let provider = try MLDictionaryFeatureProvider(dictionary: ["mix": MLFeatureValue(multiArray: input)])
-            let out = try model.prediction(from: provider)
-            // 3) 取 4 轨输出并立即拷成 Swift 数组, 让 MLMultiArray 在 pool 结束时释放
-            func extract(_ name: String) -> [[Float]] {
-                guard let arr = out.featureValue(for: name)?.multiArrayValue else {
-                    return [[Float](repeating: 0, count: frames), [Float](repeating: 0, count: frames)]
+            // 2) mix [1,2,343980]
+            let mixArr = try MLMultiArray(shape: [1, 2, NSNumber(value: Self.seg)], dataType: .float32)
+            let mp = mixArr.dataPointer.bindMemory(to: Float.self, capacity: mixArr.count)
+            for c in 0..<2 { for i in 0..<Self.seg { mp[c * Self.seg + i] = mix[c][i] } }
+            // 3) STFT -> spectrogram [1,4,2048,336]
+            let spec = stft.spectrogram(mix: mix)
+            let specArr = try MLMultiArray(shape: [1, 4, NSNumber(value: Self.F), NSNumber(value: Self.T)], dataType: .float32)
+            let sp = specArr.dataPointer.bindMemory(to: Float.self, capacity: specArr.count)
+            for i in 0..<spec.count { sp[i] = spec[i] }
+            // 4) 推理
+            let input = try MLDictionaryFeatureProvider(dictionary: [
+                "mix": MLFeatureValue(multiArray: mixArr),
+                "spectrogram": MLFeatureValue(multiArray: specArr),
+            ])
+            let out = try model.prediction(from: input)
+            guard let specStems = out.featureValue(for: "spectrogram_stems")?.multiArrayValue,
+                  let waveStems = out.featureValue(for: "waveform_stems")?.multiArrayValue else {
+                throw SeparationError.modelUnavailable
+            }
+            // 5) 逐源重建并裁回 length
+            let specP = specStems.dataPointer.bindMemory(to: Float.self, capacity: specStems.count)
+            let waveP = waveStems.dataPointer.bindMemory(to: Float.self, capacity: waveStems.count)
+            let specSrcStride = 4 * Self.F * Self.T
+            let specChanStride = Self.F * Self.T
+            let waveSrcStride = 2 * Self.seg
+            var stems: [StemKind: [[Float]]] = [:]
+            for (sIdx, kind) in Self.sourceOrder.enumerated() {
+                var specChannels: [[Float]] = []
+                for ch in 0..<4 {
+                    let base = sIdx * specSrcStride + ch * specChanStride
+                    specChannels.append(Array(UnsafeBufferPointer(start: specP + base, count: specChanStride)))
                 }
-                let p = arr.dataPointer.bindMemory(to: Float.self, capacity: arr.count)
-                var l = [Float](repeating: 0, count: frames)
-                var r = [Float](repeating: 0, count: frames)
-                for f in 0..<frames { l[f] = p[f]; r[f] = p[frames + f] }
-                return [l, r]
+                var waveChannels: [[Float]] = []
+                for ch in 0..<2 {
+                    let base = sIdx * waveSrcStride + ch * Self.seg
+                    waveChannels.append(Array(UnsafeBufferPointer(start: waveP + base, count: Self.seg)))
+                }
+                stems[kind] = stft.reconstructStem(specChannels: specChannels,
+                                                   waveChannels: waveChannels,
+                                                   length: length)
             }
-            return StemChunk(vocal: extract("vocals"),
-                             drums: extract("drums"),
-                             bass: extract("bass"),
-                             other: extract("other"))
+            return StemChunk(vocal: stems[.vocal]!, drums: stems[.drums]!,
+                             bass: stems[.bass]!, other: stems[.other]!)
         }
     }
 }

@@ -51,9 +51,14 @@ public final class SeparationEngine {
 
         let file = try AVAudioFile(forReading: pcmURL)
         let total = Int(file.length)
+        // 真实 HT-Demucs 输入为固定 7.8s 段 (343980 样本)。分块用固定 segment + 2s 重叠 (hop 的整数倍),
+        // 末块由 provider 内部补零, 输出按 range.count 裁回。plan.segmentFrames 仅对通用 chunker 有意义,
+        // 这里被模型的固定尺寸覆盖。
+        let segmentFrames = DemucsSTFT.segment
+        let overlapFrames = DemucsSTFT.hop * 86   // ≈1.998s, hop 的整数倍, 便于 Overlap-Add 对齐
         let ranges = ChunkPlanner.planChunks(totalFrames: total,
-                                             segmentFrames: plan.segmentFrames,
-                                             overlapFrames: plan.overlapFrames)
+                                             segmentFrames: segmentFrames,
+                                             overlapFrames: overlapFrames)
         guard !ranges.isEmpty else { throw SeparationError.decodeFailed }
 
         callbacks.onModelInfo(plan.model, true)
@@ -97,7 +102,7 @@ public final class SeparationEngine {
                 let stitched = OverlapAdd.stitch(chunkOutputs: outs,
                                                  ranges: ranges,
                                                  totalFrames: total,
-                                                 overlapFrames: plan.overlapFrames)
+                                                 overlapFrames: overlapFrames)
                 chans.append(stitched)
             }
             let url = outputDir.appendingPathComponent("\(kind.rawValue).caf")

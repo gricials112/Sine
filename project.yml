@@ -31,6 +31,10 @@ targets:
         excludes:
           - "**/.DS_Store"
           - "Resources/Info.plist"   # 经 INFOPLIST_FILE 引用, 不作为拷贝资源
+      # 真实 HT-Demucs CoreML 模型 + 运行契约清单 (Xcode 自动把 .mlpackage 编译为 .mlmodelc)
+      - path: models/SineSeparator.mlpackage
+      - path: models/manifest.json
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.sine.app
