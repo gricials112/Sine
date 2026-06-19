@@ -35,6 +35,15 @@
                 <string>C617.1</string>
             </array>
         </dict>
+        <!-- UserDefaults: 仅存"是否已看过新手引导"等本 App 私有偏好 -->
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <string>CA92.1</string>
+            </array>
+        </dict>
     </array>
 </dict>
 </plist>

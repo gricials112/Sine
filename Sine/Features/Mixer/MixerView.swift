@@ -7,6 +7,7 @@ struct MixerView: View {
     @StateObject private var vm = MixerViewModel()
     @State private var showExport = false
     @State private var showEQ = false
+    @State private var showOnboarding = false
 
     private var pitchBinding: Binding<Double> {
         Binding(get: { Double(vm.mix.pitchSemitones) }, set: { vm.setPitch(Int($0)) })
@@ -24,6 +25,10 @@ struct MixerView: View {
                 faders.padding(.vertical, 12).insetPanel(radius: 16, screws: true)
                 controls.padding(12).insetPanel(radius: 16)
             }.padding()
+
+            if showOnboarding {
+                MixerCoachMarks { withAnimation { showOnboarding = false } }
+            }
         }
         .navigationTitle(project.title)
         .toolbar {
@@ -31,7 +36,10 @@ struct MixerView: View {
                 Button { showExport = true } label: { Image(systemName: "square.and.arrow.up") }
             }
         }
-        .onAppear { vm.load(project: project) }
+        .onAppear {
+            vm.load(project: project)
+            if !OnboardingStore.hasSeenMixer { showOnboarding = true }
+        }
         .sheet(isPresented: $showExport) { ExportView(project: project, mixer: vm) }
         .sheet(isPresented: $showEQ) {
             EQPanelView(settings: vm.mix.otherEQ) { vm.setEQ($0) }

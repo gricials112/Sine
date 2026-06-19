@@ -13,6 +13,8 @@ struct ExportView: View {
     @State private var format: ExportFormatChoice = .m4a
     @State private var parallelPreview = false
     @State private var soloPreview: StemKind? = nil
+    @State private var shareURLs: [URL] = []
+    @State private var showShare = false
 
     enum Mode: String, CaseIterable { case stems = "分轨导出", mixdown = "混音导出" }
     enum ExportFormatChoice: String, CaseIterable { case m4a = "m4a", wav = "wav (无损)" }
@@ -63,15 +65,27 @@ struct ExportView: View {
                 }.pickerStyle(.segmented)
 
                 if case .rendering(let p) = vm.phase { ProgressView(value: p).tint(Theme.accent) }
-                if case .done = vm.phase { Label("导出完成", systemImage: "checkmark.circle.fill").foregroundStyle(.green) }
                 if case .failed(let m) = vm.phase { Text(m).foregroundStyle(.red).font(.caption) }
 
-                Button("导出") { stopPreview(); export() }
-                    .buttonStyle(.borderedProminent).tint(Theme.accent)
-                    .disabled(selected.isEmpty || vm.isBusy)
+                if case .done(let urls) = vm.phase {
+                    Label("导出完成", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                    Button {
+                        shareURLs = urls; showShare = true
+                    } label: {
+                        Label("分享 / 存到文件", systemImage: "square.and.arrow.up")
+                            .font(.headline).frame(maxWidth: .infinity).padding(.vertical, 10)
+                    }.background(Theme.accent).foregroundStyle(.black).clipShape(Capsule())
+                } else {
+                    Button("导出") { stopPreview(); export() }
+                        .buttonStyle(.borderedProminent).tint(Theme.accent)
+                        .disabled(selected.isEmpty || vm.isBusy)
+                }
             }.padding()
         }
         .onDisappear { stopPreview() }
+        #if canImport(UIKit)
+        .sheet(isPresented: $showShare) { ShareSheet(items: shareURLs) }
+        #endif
     }
 
     // MARK: - 预览控制
