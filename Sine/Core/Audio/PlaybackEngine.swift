@@ -130,6 +130,16 @@ public final class PlaybackEngine {
         return 0
     }
 
+    // MARK: - 导出预览 (直接设增益, 不改 MixState; 见 IR-8)
+
+    /// 临时直接设置各轨增益 (用于导出页内联预览: 并行预览选中轨 / 单独 Solo 试听)。
+    public func setTrackGainsDirect(_ gains: [StemKind: Float]) {
+        for kind in StemKind.allCases { trackMixers[kind]?.outputVolume = gains[kind] ?? 0 }
+    }
+
+    /// 结束预览, 恢复用户在调音台设置的增益。
+    public func restoreMixGains() { applyMixState(mixState) }
+
     // MARK: - 混音参数
 
     public func applyMixState(_ state: MixState) {
