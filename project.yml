@@ -1,0 +1,78 @@
+# XcodeGen 工程描述 (合法的声明式 Xcode 配置)。
+# 在 macOS 上执行 `xcodegen generate` 即可生成 Sine.xcodeproj 进行编译/运行。
+# 安装 XcodeGen: `brew install xcodegen`。
+name: Sine
+options:
+  bundleIdPrefix: com.sine.app
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    DEVELOPMENT_LANGUAGE: zh-Hans
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+
+# 本地 SPM 包: 暴露平台无关的 SineCore 纯逻辑库, 供单元测试直接验证。
+packages:
+  SineCore:
+    path: .
+
+targets:
+  # ---------- iOS App ----------
+  Sine:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: Sine
+        excludes:
+          - "**/.DS_Store"
+          - "Resources/Info.plist"   # 经 INFOPLIST_FILE 引用, 不作为拷贝资源
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sine.app
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Sine/Resources/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        TARGETED_DEVICE_FAMILY: "1"   # iPhone
+        ENABLE_PREVIEWS: YES
+        SWIFT_EMIT_LOC_STRINGS: YES
+    # App 编译全部 Sine/ 源码为单一模块 (含 Core/Features/App)。
+    # 平台框架 (AVFoundation/CoreML/Metal/CoreHaptics) 为系统库, 隐式可用。
+
+  # ---------- 纯逻辑单元测试 (对应 reference 的 Python 用例) ----------
+  SineCoreTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - Tests/SineCoreTests
+    dependencies:
+      - package: SineCore
+        product: SineCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sine.app.coretests
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  Sine:
+    build:
+      targets:
+        Sine: all
+    run:
+      config: Debug
+    test:
+      targets:
+        - SineCoreTests
+  SineCoreTests:
+    build:
+      targets:
+        SineCoreTests: all
+    test:
+      targets:
+        - SineCoreTests

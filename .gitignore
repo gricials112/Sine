@@ -1,0 +1,24 @@
+# macOS / Xcode
+.DS_Store
+xcuserdata/
+*.xcuserstate
+DerivedData/
+build/
+*.xcworkspace/xcuserdata/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# Python (reference)
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# Models (大模型权重不入库; 通过转换脚本生成或按需下载)
+*.mlmodel
+*.mlmodelc
+*.mlpackage
