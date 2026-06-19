@@ -22,3 +22,7 @@ venv/
 *.mlmodel
 *.mlmodelc
 *.mlpackage
+
+# 真实 HT-Demucs CoreML 模型 (经 Git LFS 提交)
+!models/SineSeparator.mlpackage/
+!models/SineSeparator.mlpackage/**
